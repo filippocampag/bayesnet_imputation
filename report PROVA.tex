@@ -1,0 +1,201 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{amsmath,amssymb}
+
+% Packages required for kableExtra tables
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{wrapfig}
+\usepackage{float}
+\usepackage{colortbl}
+\usepackage{pdflscape}
+\usepackage{tabu}
+\usepackage{threeparttable}
+\usepackage{threeparttablex}
+\usepackage[normalem]{ulem}
+\usepackage{makecell}
+\usepackage{xcolor}
+
+\title{BN Imputation Report}
+\author{Giuseppe Pianeti \and Filippo Campagnolo}
+\date{June 14, 2026}
+
+\begin{document}
+	
+	\maketitle
+	
+	The Bayesian Networks Imputation project is the result of coursework of the Advanced Machine Learning module of the Master in Statistical and Economics Methods for Decision Making at the University of Turin. We analyzed the Heart Disease Dataset \cite{uci1988heart} by trying to predict the presence or absence of a heart disease. In our work we did not limit ourselves to a classical, predictive analysis; instead, we tried to improve the performance of different machine learning algorithms by imputing missing data with Bayesian Networks. Thus, we carried out a sensitivity analysis by performing different reviews on different data configurations: this involved the construction of 4 different versions of the data, beyond the main analysis. Later, the missing data were imputed (if needed) and the models fitted and tested. We used Random Forests (RF), Bayesian Additive Regression Trees (BART), a learned Bayesian Network (BN), Naive Bayes (NB) and Tree-Augmented Naive Bayes (TAN). In this brief report we outline the data features, the choices made, and the project structure.
+	
+	\section{Heart Disease Dataset and Missing Data}
+	The Heart Disease dataset contains 14 attributes of 920 patients from 4 different clinics in the world: Cleveland, Hungarian, Switzerland, and Long Beach. For an accurate description of the variables, please check the presentation file or the UCI Repository website \cite{uci1988heart}. So far, machine learning applications on this dataset have concerned the Cleveland clinic only. In this work, we attempt to include the other clinics to increase the number of observations and, thus, statistical power.
+	
+	By taking a quick look at the data, we immediately notice the large amount of missing values, mostly relative to \texttt{slope}, \texttt{ca}, and \texttt{thal} variables in the Hungarian, Switzerland, and Long Beach clinics. Cleveland is the clinic reporting the vast majority of complete cases. This pattern clearly suggests MNAR (Missing Not At Random) missing data, i.e., the probability of being missing varies for reasons that are unknown to us, something likely linked to clinic procedures or protocols.
+	
+	Since the tabu algorithm we decided to use for the Bayesian network structure learning \cite{nagarajan2013bayesian}\cite{scutari2010learning} requires complete observations, we need to make an assumption of homogeneity across the different clinics in order to transfer correctly the results obtained on the Cleveland complete data to other clinics. In terms of joint probability $\Pr (\mathbf{X}|\texttt{location})= \Pr(X_1,X_2,\dots,X_{13},Y|\texttt{location})$ we assume the following distributional invariance:
+	\[
+	\Pr (\texttt{slope}, \texttt{ca}, \texttt{thal}|\texttt{location}_i)= \Pr (\texttt{slope}, \texttt{ca}, \texttt{thal}|\texttt{location}_j) \qquad \forall i,j \in\{\texttt{ch}, \texttt{cl}, \texttt{hu}, \texttt{va}\}
+	\]
+	
+	Then, if \texttt{slope}, \texttt{ca}, \texttt{thal} and the other NA values are MCAR (Missing Completely At Random) or at least MAR (Missing at Random), we can assume homogeneity of these features across the clinics and, therefore, the transferability of the estimated Bayesian Network for imputation from Cleveland to the other clinics. This assumption holds easily for \texttt{slope}, which is a parameter of a common, non-invasive diagnostic test. \texttt{ca} and \texttt{thal} refer instead to much more invasive and expensive tests that may be administered in a selective or different manner from one clinic to another; therefore, the assumption of homogeneity may not hold true. We will informally test this hypothesis with a sensitivity analysis that we introduce later. 
+	
+	\section{Workflow}
+	The general workflow consists of 4 main steps:
+	
+	\begin{enumerate}
+		\item \textbf{Data preparation}: the data is loaded, cleaned and formatted accordingly to the analysis of interest. The 5 scenarios are Main Analysis (scenario 0), Complete Data (1), Mean/Mode Imputation (2), Partial Data (3) and Slope Data (4). We describe their configurations in the next section.
+		\item \textbf{Data imputation}: the dataframe is split into train and test sets, then missing values are imputed with a Bayesian Network whose structure and parameters are defined through a cross-validation. This procedure finds the penalization parameter of BIC \texttt{k} and the maximum number of parents \texttt{maxp} of the DAG that minimize the reconstruction error of artificially imputed missing data. 
+		\item \textbf{Models fitting}: once obtained the imputed train and test sets, the models are validated, fitted and evaluated with balanced accuracy. RF and BART hyperparameters are chosen through cross-validation \cite{hastie2009elements}\cite{james2013introduction}. For the BN model, a blacklist of arcs is defined and both structure and parameters are learned using BIC penalization.
+		\item \textbf{Data storing}: the results of the analysis are saved and later used in the presentation and report.
+	\end{enumerate}
+	
+	\section{Scenarios and Sensitivity Analysis}
+	Scenarios 1 and 2 are designed to check whether, assuming the homogeneity hypothesis holds, the Bayesian Network imputation is preferable compared to other methods. If the models in scenarios 3 and 4 outperform the models in the main analysis, this is consistent with either a violation of the transferability assumption or an intrinsic low predictive power of the excluded variables.
+	
+	\begin{enumerate}
+		\item[\textbf{0.}] \textbf{Main Analysis:} We used the entire dataset and imputed the missing data with a cross-validated Bayesian Network, then carried out the classification task.
+		\item[\textbf{1.}] \textbf{Complete Cases:} Simulates the absence of any imputation strategy by restricting both sets to fully observed records only. Since complete cases belong almost exclusively to the Cleveland clinic, the analysis is effectively clinic-specific.
+		\item[\textbf{2.}] \textbf{Mean/Mode Imputation:} The data configuration is the same as scenario 0, but missing data is imputed with mean for continuous variables and mode for discrete ones.
+		\item[\textbf{3.}] \textbf{Partial Data:} Excludes \texttt{slope}, \texttt{ca}, and \texttt{thal} entirely from the dataset to assess whether the homogeneity assumption underlying the transfer of the imputation network holds for these three variables.
+		\item[\textbf{4.}] \textbf{Slope Data:} Retains \texttt{slope} while excluding \texttt{ca} and \texttt{thal}. Since \texttt{slope} has considerably fewer missing values, its imputation relies on a substantially larger fraction of directly observed data, making the transferability assumption more defensible.
+	\end{enumerate}
+	
+	\section{Results}
+	Overall, the best global performances were achieved in the Slope Data scenario, which excludes \texttt{ca} and \texttt{thal} while retaining \texttt{slope}. Moving from the Main analysis to the Slope Data improved global accuracy for almost all models, with the exception of the Bayesian Network. This dynamic suggests that \texttt{ca} and \texttt{thal} do not respect the homogeneity assumption; forcibly imposing Cleveland's structural distribution for these variables onto the other clinics likely introduced more noise than signal into the models.
+	
+	Conversely, when we further removed the \texttt{slope} variable to create the Partial Data, global performance dropped for Random Forest, BART, Naive Bayes, and Tree-Augmented Naive Bayes compared to their performance on the Slope Data. This indicates that the \texttt{slope} variable does respect the homogeneity assumption. Given that its distribution in Cleveland is sufficiently similar to the other clinics, imputing it successfully added valuable predictive power rather than noise.
+	
+	Moreover, the performances with Slope Data are quite similar to the performances in the data imputed with mean and mode; the only notable difference is in the accuracy of the Naive Bayes classifier, which achieved 83.4\% in Slope data versus 79.4\% in Mean/mode imputation. Since Naive Bayes consistently achieved the highest accuracy across all scenarios, its improvement under BN imputation provides the strongest evidence that Bayesian Network imputation yields a better data reconstruction than the naive mean/mode strategy.
+	
+	An insightful comparison emerges when evaluating the Complete Cases scenario against the Cleveland-specific results within the Main Analysis. Because the Complete Cases dataset is comprised almost entirely of Cleveland patients, this direct comparison isolates the effect of introducing imputed data from other clinics on the models' ability to predict the "clean" baseline cases. For the BART algorithm, mixing in the imputed data from Switzerland, Hungary, and VA Long Beach appeared to dilute its predictive power, causing its accuracy to drop from 81.5\% on the Complete Cases to 78.1\% for the Cleveland subset in the Main Analysis. 
+	
+	Conversely, models such as Naive Bayes, Random Forest, and Tree-Augmented Naive Bayes benefited from the artificially expanded dataset. Naive Bayes improved from 79.4\% on the Complete Cases to 80.0\% for the Cleveland patients in the Main Analysis, while TAN saw a substantial jump from 72.8\% to 77.5\%. Furthermore, the strong performance of the Naive Bayes and Tree-Augmented Naive Bayes classifiers highlights the efficacy of probabilistic graphical models in medical diagnostic tasks, maintaining computational simplicity while relaxing strict independence assumptions \cite{nagarajan2013bayesian}. Conversely, while highly flexible ensemble models like Bayesian Additive Regression Trees and Random Forests \cite{james2013introduction} \cite{hastie2009elements} are incredibly powerful, our complete cases comparison demonstrates that they may overfit to the stochastic noise introduced by the Bayesian imputation.
+	
+	\newpage
+	\section*{Results Tables}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Main Analysis}
+		\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+			\fontsize{10}{12}\selectfont
+			\begin{tabular}[t]{lrrrrr}
+				\toprule
+				Location & Random Forest & BART & BN & Naive Bayes & TAN\\
+				\midrule
+				\cellcolor{gray!10}{ch} & \cellcolor{gray!10}{0.611} & \cellcolor{gray!10}{0.620} & \cellcolor{gray!10}{0.630} & \cellcolor{gray!10}{0.620} & \cellcolor{gray!10}{0.505}\\
+				cl & 0.788 & 0.781 & 0.786 & 0.800 & 0.775\\
+				\cellcolor{gray!10}{hu} & \cellcolor{gray!10}{0.862} & \cellcolor{gray!10}{0.839} & \cellcolor{gray!10}{0.836} & \cellcolor{gray!10}{0.832} & \cellcolor{gray!10}{0.832}\\
+				va & 0.569 & 0.553 & 0.577 & 0.634 & 0.620\\
+				\cellcolor{gray!10}{\textbf{Global Performance}} & \cellcolor{gray!10}{\textbf{0.786}} & \cellcolor{gray!10}{\textbf{0.777}} & \cellcolor{gray!10}{\textbf{0.786}} & \cellcolor{gray!10}{\textbf{0.803}} & \cellcolor{gray!10}{\textbf{0.776}}\\
+				\bottomrule
+		\end{tabular}}
+	\end{table}
+	
+	\vspace{1em}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Mean/Mode Imputation}
+		\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+			\fontsize{10}{12}\selectfont
+			\begin{tabular}[t]{lrrrrr}
+				\toprule
+				Location & Random Forest & BART & BN & Naive Bayes & TAN\\
+				\midrule
+				\cellcolor{gray!10}{ch} & \cellcolor{gray!10}{0.606} & \cellcolor{gray!10}{0.588} & \cellcolor{gray!10}{0.588} & \cellcolor{gray!10}{0.542} & \cellcolor{gray!10}{0.588}\\
+				cl & 0.762 & 0.798 & 0.761 & 0.760 & 0.759\\
+				\cellcolor{gray!10}{hu} & \cellcolor{gray!10}{0.810} & \cellcolor{gray!10}{0.822} & \cellcolor{gray!10}{0.808} & \cellcolor{gray!10}{0.839} & \cellcolor{gray!10}{0.815}\\
+				va & 0.634 & 0.615 & 0.573 & 0.596 & 0.604\\
+				\cellcolor{gray!10}{\textbf{Global Performance}} & \cellcolor{gray!10}{\textbf{0.787}} & \cellcolor{gray!10}{\textbf{0.805}} & \cellcolor{gray!10}{\textbf{0.770}} & \cellcolor{gray!10}{\textbf{0.794}} & \cellcolor{gray!10}{\textbf{0.792}}\\
+				\bottomrule
+		\end{tabular}}
+	\end{table}
+	
+	\vspace{1em}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Partial Data}
+		\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+			\fontsize{10}{12}\selectfont
+			\begin{tabular}[t]{lrrrrr}
+				\toprule
+				Location & Random Forest & BART & BN & Naive Bayes & TAN\\
+				\midrule
+				\cellcolor{gray!10}{ch} & \cellcolor{gray!10}{0.606} & \cellcolor{gray!10}{0.597} & \cellcolor{gray!10}{0.597} & \cellcolor{gray!10}{0.579} & \cellcolor{gray!10}{0.426}\\
+				cl & 0.769 & 0.774 & 0.769 & 0.788 & 0.733\\
+				\cellcolor{gray!10}{hu} & \cellcolor{gray!10}{0.801} & \cellcolor{gray!10}{0.829} & \cellcolor{gray!10}{0.807} & \cellcolor{gray!10}{0.850} & \cellcolor{gray!10}{0.801}\\
+				va & 0.596 & 0.623 & 0.573 & 0.589 & 0.589\\
+				\cellcolor{gray!10}{\textbf{Global Performance}} & \cellcolor{gray!10}{\textbf{0.784}} & \cellcolor{gray!10}{\textbf{0.794}} & \cellcolor{gray!10}{\textbf{0.767}} & \cellcolor{gray!10}{\textbf{0.816}} & \cellcolor{gray!10}{\textbf{0.757}}\\
+				\bottomrule
+		\end{tabular}}
+	\end{table}
+	
+	\vspace{1em}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Slope Data}
+		\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+			\fontsize{10}{12}\selectfont
+			\begin{tabular}[t]{lrrrrr}
+				\toprule
+				Location & Random Forest & BART & BN & Naive Bayes & TAN\\
+				\midrule
+				\cellcolor{gray!10}{ch} & \cellcolor{gray!10}{0.616} & \cellcolor{gray!10}{0.597} & \cellcolor{gray!10}{0.588} & \cellcolor{gray!10}{0.569} & \cellcolor{gray!10}{0.606}\\
+				cl & 0.774 & 0.772 & 0.747 & 0.794 & 0.746\\
+				\cellcolor{gray!10}{hu} & \cellcolor{gray!10}{0.805} & \cellcolor{gray!10}{0.845} & \cellcolor{gray!10}{0.796} & \cellcolor{gray!10}{0.848} & \cellcolor{gray!10}{0.780}\\
+				va & 0.604 & 0.630 & 0.612 & 0.669 & 0.619\\
+				\cellcolor{gray!10}{\textbf{Global Performance}} & \cellcolor{gray!10}{\textbf{0.794}} & \cellcolor{gray!10}{\textbf{0.802}} & \cellcolor{gray!10}{\textbf{0.770}} & \cellcolor{gray!10}{\textbf{0.834}} & \cellcolor{gray!10}{\textbf{0.785}}\\
+				\bottomrule
+		\end{tabular}}
+	\end{table}
+	
+	\vspace{1em}
+	
+	\begin{table}[H]
+		\centering
+		\caption{Complete Cases (global only)}
+		\resizebox{\ifdim\width>\linewidth\linewidth\else\width\fi}{!}{
+			\fontsize{10}{12}\selectfont
+			\begin{tabular}[t]{lrrrrr}
+				\toprule
+				Location & Random Forest & BART & BN & Naive Bayes & TAN\\
+				\midrule
+				\cellcolor{gray!10}{\textbf{Global Performance}} & \cellcolor{gray!10}{\textbf{0.779}} & \cellcolor{gray!10}{\textbf{0.815}} & \cellcolor{gray!10}{\textbf{0.791}} & \cellcolor{gray!10}{\textbf{0.794}} & \cellcolor{gray!10}{\textbf{0.728}}\\
+				\bottomrule
+		\end{tabular}}
+	\end{table}
+	
+	\newpage
+	% Bibliography section built directly into the file
+	\begin{thebibliography}{9}
+		
+		\bibitem{uci1988heart}
+		Janosi, A., Steinbrunn, W., Pfisterer, M., \& Detrano, R. (1988). \textit{Heart Disease}. UCI Machine Learning Repository. \url{https://archive.ics.uci.edu/dataset/45/heart+disease}
+		
+		\bibitem{nagarajan2013bayesian} Nagarajan, R., Scutari, M., \& Lèbre, S. (2013). \textit{Bayesian Networks in R: with Applications in Systems Biology}. Springer.		
+		
+		\bibitem{scutari2010learning}
+		Scutari, M. (2010). Learning Bayesian Networks with the bnlearn R Package. \textit{Journal of Statistical Software}, 35(3), 1--22.
+		
+		\bibitem{hastie2009elements}
+		Hastie, T., Tibshirani, R., \& Friedman, J. (2009). \textit{The Elements of Statistical Learning: Data Mining, Inference, and Prediction} (2nd ed.). Springer.
+		
+		\bibitem{james2013introduction}
+		James, G., Witten, D., Hastie, T., \& Tibshirani, R. (2013). \textit{An Introduction to Statistical Learning: with Applications in R}. Springer.
+		
+		\bibitem{hojsgaard2012graphical}
+		Højsgaard, S., Edwards, D., \& Lauritzen, S. (2012). \textit{Graphical Models with R}. Springer. 
+		
+		
+		
+	\end{thebibliography}
+
+\end{document}
