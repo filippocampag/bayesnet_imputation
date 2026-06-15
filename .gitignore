@@ -1,0 +1,35 @@
+# History and workspace files
+.RData
+.Rhistory
+.Rapp.history
+.Ruserdata
+
+# RStudio specific
+.Rproj.user/
+
+# Project specific: Ignore the raw data folder
+data/
+*.data
+*.rds
+
+# Quarto / RMarkdown generated files
+.quarto/
+*_files/
+*_cache/
+
+# LaTeX compilation junk (keeps your folder clean when compiling the PDF)
+*.log
+*.aux
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# OS specific hidden files
+.DS_Store
+Thumbs.db
+
+*.html
+report PROVA.pdf
+*.tex
+report.qmd
