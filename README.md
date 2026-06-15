@@ -1,8 +1,12 @@
 # Heart Disease Data: imputation and prediction
 **Authors**: Filippo Campagnolo, Giuseppe Pianeti
+
 **Course**: Advanced Machine Learning - Master in Statistical and Economic Methods for Decision Making, University of Turin
+
 **Teacher**: Luciana Dalla Valle
+
 **Academic year**: 2025/2026
+
 ## Overview
 This project applies machine learning classification algorithms to predict the presence of heart disease using the UCI Heart Disease Dataset. Moving beyond classical predictive analysis, this project heavily focuses on handling Missing Not At Random (MNAR) data across different global clinics using Bayesian Network imputation. 
 
