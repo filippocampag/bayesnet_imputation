@@ -3,7 +3,7 @@
 .Rhistory
 .Rapp.history
 .Ruserdata
-.Rproj
+*.Rproj
 
 # RStudio specific
 .Rproj.user/
