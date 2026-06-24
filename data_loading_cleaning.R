@@ -100,6 +100,3 @@ hd <- if (scenario == 0 | scenario == 2) {
 } else if (scenario == 4) {
   hd %>% select(-c("num", "thal", "ca"))
 }
-
-
-

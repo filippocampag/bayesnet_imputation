@@ -16,7 +16,7 @@ test <- hd[-training, ] %>% select(-location)
 train.complete <- na.omit(train)
 
 num_vars_names <- names(train %>% select(where(is.numeric)))
-cat_vars_names <- names(trainset %>% select(!where(is.numeric)))
+cat_vars_names <- names(train %>% select(!where(is.numeric)))
 
 ##################################################### 
 ### CROSS VALIDATION ################################ 
@@ -110,10 +110,7 @@ if (scenario %in% c(0,3,4)) {
       fold_size <- nrow(test.val)
       nna <- floor(fold_size*0.2)
       na.index <- replicate(p, sample(1:fold_size, nna), simplify = F)
-      # since last version, iwalk loop replaced with this for loop
-      for (j in seq_along(na.index)) {
-        test.na[na.index[[j]], j] <- NA
-      }
+      iwalk(na.index, ~ {test.na[.x, .y] <<- NA})
       
       # fitting
       dag <- tabu(train.val, score = "bic-cg", k = param$k[idx], maxp = param$maxp[idx])
@@ -144,25 +141,23 @@ if (scenario %in% c(0,3,4)) {
         imputed_vals <- imputed.data[na.index[[j]], j]
         
         if (variable[j] %in% num_vars_names) {
-          #added na.rm = TRUE
-          mse <- (1/nna)*sum((true_vals - imputed_vals)^2, na.rm = TRUE)
+          mse <- (1/nna)*sum((true_vals - imputed_vals)^2)
           rmse <- sqrt(mse)
-          nrmse <- rmse / sd(train.complete[, j]na.rm = TRUE)
+          nrmse <- rmse / sd(train.complete[, j])
           nrmse_scaled <- nrmse / (1 + nrmse)
           gof_score[j] <- nrmse_scaled
           
         } else if (variable[j] %in% cat_vars_names) {
-          err <- (1/nna)*sum(true_vals != imputed_vals, na.rm = TRUE)
+          err <- (1/nna)*sum(true_vals != imputed_vals)
           gof_score[j] <- err
           
         } else (message(paste(j, "-th variable to compute performance not found")))
         
       }
-      fold_mean[i] <- mean(gof_score, na.rm = TRUE)
+      fold_mean[i] <- mean(gof_score)
     }
     score_k[idx] <- mean(fold_mean)
-    # improved the progress tracker
-    cat("Progress: ", idx/nrow(param), "\n")
+    print(c(idx, score_k[idx]))
   }
   
   # finding the best parameters

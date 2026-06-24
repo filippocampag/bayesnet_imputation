@@ -356,3 +356,4 @@ res.tan <- fit_bn_classifier(
 graphviz.plot(res.tan$dag, layout = "circo")
 cat("TAN - global balanced accuracy:", res.tan$gen.acc, "\n")
 print(res.tan$byloc)
+
